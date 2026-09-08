@@ -1,0 +1,6 @@
+services:
+  ticket-mock-mcp:
+    build: .
+    image: ticket-mock-mcp:local
+    ports:
+      - "3000:3000"
