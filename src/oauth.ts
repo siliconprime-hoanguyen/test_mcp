@@ -1,4 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 
 import {
   OAuthError,
@@ -57,7 +59,10 @@ export class MockOAuthServer {
   constructor(
     private readonly username = "hoa",
     private readonly password = "123456",
-  ) {}
+    private readonly clientStorePath?: string,
+  ) {
+    this.loadClients();
+  }
 
   metadata(issuer: URL): OAuthMetadata {
     return {
@@ -157,6 +162,12 @@ export class MockOAuthServer {
       redirectUris,
     };
     this.clients.set(clientId, client);
+    try {
+      this.saveClients();
+    } catch (error) {
+      this.clients.delete(clientId);
+      throw error;
+    }
 
     return json(
       {
@@ -314,6 +325,52 @@ export class MockOAuthServer {
       if (value.expiresAt <= now) this.codes.delete(key);
     }
   }
+
+  private loadClients(): void {
+    if (!this.clientStorePath) return;
+
+    let stored: unknown;
+    try {
+      stored = JSON.parse(readFileSync(this.clientStorePath, "utf8")) as unknown;
+    } catch (error) {
+      if (isFileNotFound(error)) return;
+      throw new Error(`OAuth client store is unreadable: ${this.clientStorePath}`);
+    }
+    if (!isObject(stored) || stored.version !== 1 || !Array.isArray(stored.clients) || !stored.clients.every(isRegisteredClient)) {
+      throw new Error(`OAuth client store is invalid: ${this.clientStorePath}`);
+    }
+    for (const client of stored.clients) this.clients.set(client.clientId, client);
+  }
+
+  private saveClients(): void {
+    if (!this.clientStorePath) return;
+
+    mkdirSync(dirname(this.clientStorePath), { recursive: true });
+    const temporaryPath = `${this.clientStorePath}.${process.pid}.tmp`;
+    writeFileSync(
+      temporaryPath,
+      JSON.stringify({ version: 1, clients: [...this.clients.values()] }),
+      { encoding: "utf8", mode: 0o600 },
+    );
+    renameSync(temporaryPath, this.clientStorePath);
+  }
+}
+
+function isRegisteredClient(value: unknown): value is RegisteredClient {
+  return (
+    isObject(value) &&
+    typeof value.clientId === "string" &&
+    /^[A-Za-z0-9_-]{43}$/.test(value.clientId) &&
+    typeof value.clientName === "string" &&
+    Array.isArray(value.redirectUris) &&
+    value.redirectUris.length > 0 &&
+    value.redirectUris.length <= 10 &&
+    value.redirectUris.every((uri) => typeof uri === "string" && isAllowedRedirectUri(uri))
+  );
+}
+
+function isFileNotFound(error: unknown): boolean {
+  return isObject(error) && error.code === "ENOENT";
 }
 
 function isAllowedRedirectUri(value: string): boolean {

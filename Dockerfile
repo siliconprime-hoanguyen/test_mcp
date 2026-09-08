@@ -18,6 +18,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY --from=build /app/dist ./dist
+RUN mkdir -p /data && chown node:node /data
 
 EXPOSE 3000
 USER node

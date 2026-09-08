@@ -4,5 +4,11 @@ services:
     image: ticket-mock-mcp:local
     environment:
       MCP_PUBLIC_URL: https://test-mcp.codehub.io
+      MCP_OAUTH_CLIENT_STORE_PATH: /data/oauth-clients.json
     ports:
       - "0.0.0.0:3000:3000"
+    volumes:
+      - oauth-clients:/data
+
+volumes:
+  oauth-clients:

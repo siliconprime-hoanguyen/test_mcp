@@ -38,10 +38,11 @@ export interface HttpServerOptions {
   publicUrl?: URL;
   username?: string;
   password?: string;
+  oauthClientStorePath?: string;
 }
 
 export function createHttpServer(options: HttpServerOptions = {}): Server {
-  const oauth = new MockOAuthServer(options.username, options.password);
+  const oauth = new MockOAuthServer(options.username, options.password, options.oauthClientStorePath);
   const mcpHandler = createMcpHandler(createMcpServer);
   const nodeHandler = toNodeHandler({
     async fetch(request) {

@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import { createHttpServer } from "../src/http.js";
+import { MockOAuthServer } from "../src/oauth.js";
 
 const MCP_REQUEST = {
   jsonrpc: "2.0",
@@ -160,6 +164,52 @@ test("accepts MCP requests with any Host header", async (context) => {
     response.headers.get("www-authenticate") ?? "",
     /resource_metadata="https:\/\/test-mcp\.codehub\.io\/\.well-known\/oauth-protected-resource\/mcp"/,
   );
+});
+
+test("keeps DCR clients across OAuth server recreation", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "ticket-mock-oauth-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+
+  const storePath = join(directory, "clients.json");
+  const origin = "http://localhost:3000";
+  const redirectUri = "https://connect.dev.leapforce.ai/oauth/provider-callback";
+  const oauthContext = {
+    issuer: new URL(origin),
+    mcpUrl: new URL("/mcp", origin),
+  };
+  const first = new MockOAuthServer("hoa", "123456", storePath);
+  const registration = await first.handle(
+    new Request(`${origin}/oauth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        client_name: "restart test",
+        redirect_uris: [redirectUri],
+        grant_types: ["authorization_code", "refresh_token"],
+        token_endpoint_auth_method: "none",
+      }),
+    }),
+    oauthContext,
+  );
+  assert.equal(registration?.status, 201);
+  const { client_id: clientId } = (await registration.json()) as { client_id: string };
+
+  const verifier = randomBytes(32).toString("base64url");
+  const challenge = createHash("sha256").update(verifier).digest("base64url");
+  const authorizeUrl = new URL("/oauth/authorize", origin);
+  authorizeUrl.search = new URLSearchParams({
+    response_type: "code",
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+    resource: oauthContext.mcpUrl.href,
+    scope: "mcp",
+  }).toString();
+
+  const second = new MockOAuthServer("hoa", "123456", storePath);
+  const authorization = await second.handle(new Request(authorizeUrl), oauthContext);
+  assert.equal(authorization?.status, 200);
 });
 
 function callMcp(url: string, token?: string, host?: string): Promise<Response> {
