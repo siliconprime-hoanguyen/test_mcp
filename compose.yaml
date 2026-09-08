@@ -2,5 +2,7 @@ services:
   ticket-mock-mcp:
     build: .
     image: ticket-mock-mcp:local
+    environment:
+      MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-http://localhost:3000}
     ports:
       - "3000:3000"

@@ -14,7 +14,7 @@ npm run build
 npm start
 ```
 
-The endpoint is available at `http://localhost:3000/mcp`. Set `HOST` or `PORT` to change the bind address or port.
+The endpoint is available at `http://localhost:3000/mcp`. Set `HOST` or `PORT` to change the bind address or port. `MCP_PUBLIC_URL` must be the externally reachable origin used in OAuth metadata.
 
 Point a remote-capable MCP host at the URL:
 
@@ -27,6 +27,25 @@ Point a remote-capable MCP host at the URL:
   }
 }
 ```
+
+## OAuth and DCR
+
+The MCP endpoint requires an OAuth bearer token. It publishes protected-resource and authorization-server metadata, supports RFC 7591 Dynamic Client Registration, and uses authorization code flow with S256 PKCE.
+
+Test login:
+
+- Username: `hoa`
+- Password: `123456`
+
+Registrations, authorization codes, and tokens are held in memory and reset whenever the process restarts. This fixed login is only for isolated testing.
+
+OAuth requires HTTPS for non-localhost clients. For a remote deployment, terminate TLS at a reverse proxy and set the public origin before starting Compose:
+
+```bash
+MCP_PUBLIC_URL=https://mcp.example.com docker compose up --build -d
+```
+
+Then configure the MCP client with `https://mcp.example.com/mcp`. An OAuth-capable client will discover the metadata, register itself through DCR, and open the login page automatically.
 
 ## Tool payload
 
@@ -56,8 +75,6 @@ An empty payload uses both defaults:
 npm run check
 ```
 
-This mock endpoint has no authentication and should only be exposed on a trusted test network or behind an authenticated gateway.
-
 ## Docker
 
 Build and start the remote server:
@@ -66,10 +83,10 @@ Build and start the remote server:
 docker compose up --build -d
 ```
 
-The remote MCP URL is then:
+For localhost testing, the MCP URL is:
 
 ```text
-http://your-server:3000/mcp
+http://localhost:3000/mcp
 ```
 
 Stop it with:
