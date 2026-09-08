@@ -75,6 +75,10 @@ test("completes DCR OAuth with PKCE before serving MCP", async (context) => {
 
   const loginPage = await fetch(authorizeUrl);
   assert.equal(loginPage.status, 200);
+  assert.match(
+    loginPage.headers.get("content-security-policy") ?? "",
+    /form-action 'self' http:\/\/127\.0\.0\.1:9876/,
+  );
   const requestId = (await loginPage.text()).match(/name="request_id" value="([^"]+)"/)?.[1];
   assert.ok(requestId);
 
