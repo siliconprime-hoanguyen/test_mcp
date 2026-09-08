@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { createHttpServer } from "../src/http.js";
+import { createHttpServer, type HttpRequestLog } from "../src/http.js";
 import { MockOAuthServer } from "../src/oauth.js";
 
 const MCP_REQUEST = {
@@ -164,6 +164,34 @@ test("accepts MCP requests with any Host header", async (context) => {
     response.headers.get("www-authenticate") ?? "",
     /resource_metadata="https:\/\/test-mcp\.codehub\.io\/\.well-known\/oauth-protected-resource\/mcp"/,
   );
+});
+
+test("logs response body bytes and request duration without query parameters", async (context) => {
+  let resolveLog!: (entry: HttpRequestLog) => void;
+  const logged = new Promise<HttpRequestLog>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error("request was not logged")), 250);
+    resolveLog = (entry) => {
+      clearTimeout(timeout);
+      resolve(entry);
+    };
+  });
+  const server = createHttpServer({ logger: resolveLog });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  context.after(() => new Promise<void>((resolve) => server.close(() => resolve())));
+
+  const { port } = server.address() as AddressInfo;
+  const response = await fetch(`http://127.0.0.1:${port}/not-found?code=must-not-be-logged`);
+  const responseBody = await response.text();
+  const entry = await logged;
+
+  assert.equal(entry.event, "http_request");
+  assert.equal(entry.method, "GET");
+  assert.equal(entry.path, "/not-found");
+  assert.equal(entry.status, 404);
+  assert.equal(entry.responseBytes, Buffer.byteLength(responseBody));
+  assert.ok(Number.isFinite(entry.durationMs));
+  assert.ok(entry.durationMs >= 0);
+  assert.equal(JSON.stringify(entry).includes("must-not-be-logged"), false);
 });
 
 test("keeps DCR clients across OAuth server recreation", async (context) => {
