@@ -143,13 +143,29 @@ test("completes DCR OAuth with PKCE before serving MCP", async (context) => {
   assert.equal(result.count, 2);
 });
 
-function callMcp(url: string, token?: string): Promise<Response> {
+test("accepts MCP requests with any Host header", async (context) => {
+  const server = createHttpServer({ publicUrl: new URL("https://test-mcp.codehub.io") });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  context.after(() => new Promise<void>((resolve) => server.close(() => resolve())));
+
+  const { port } = server.address() as AddressInfo;
+  const response = await callMcp(`http://127.0.0.1:${port}/mcp`, undefined, "arbitrary.example");
+
+  assert.equal(response.status, 401);
+  assert.match(
+    response.headers.get("www-authenticate") ?? "",
+    /resource_metadata="https:\/\/test-mcp\.codehub\.io\/\.well-known\/oauth-protected-resource\/mcp"/,
+  );
+});
+
+function callMcp(url: string, token?: string, host?: string): Promise<Response> {
   return fetch(url, {
     method: "POST",
     headers: {
       accept: "application/json, text/event-stream",
       "content-type": "application/json",
       ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...(host ? { host } : {}),
     },
     body: JSON.stringify(MCP_REQUEST),
   });

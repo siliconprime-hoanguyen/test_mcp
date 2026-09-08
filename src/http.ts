@@ -4,10 +4,8 @@ import { toNodeHandler } from "@modelcontextprotocol/node";
 import {
   createMcpHandler,
   getOAuthProtectedResourceMetadataUrl,
-  hostHeaderValidationResponse,
   McpServer,
   oauthMetadataResponse,
-  originValidationResponse,
   requireBearerAuth,
 } from "@modelcontextprotocol/server";
 
@@ -50,12 +48,6 @@ export function createHttpServer(options: HttpServerOptions = {}): Server {
       const requestUrl = new URL(request.url);
       const issuer = options.publicUrl ?? new URL(requestUrl.origin);
       const mcpUrl = new URL("/mcp", issuer);
-      const allowedHosts = isLocalhost(issuer)
-        ? ["localhost", "127.0.0.1", "[::1]"]
-        : [issuer.hostname];
-      const rejected =
-        hostHeaderValidationResponse(request, allowedHosts) ?? originValidationResponse(request, allowedHosts);
-      if (rejected) return rejected;
 
       const oauthMetadata = oauth.metadata(issuer);
       const metadata = oauthMetadataResponse(request, {

@@ -14,7 +14,7 @@ npm run build
 npm start
 ```
 
-The endpoint is available at `http://localhost:3000/mcp`. Set `HOST` or `PORT` to change the bind address or port. `MCP_PUBLIC_URL` must be the externally reachable origin used in OAuth metadata.
+The public endpoint is `https://test-mcp.codehub.io/mcp`. The container listens on every host interface at port 3000, and requests are accepted with any incoming `Host` header. OAuth metadata always uses the canonical public hostname.
 
 Point a remote-capable MCP host at the URL:
 
@@ -22,7 +22,7 @@ Point a remote-capable MCP host at the URL:
 {
   "mcpServers": {
     "ticket-mock": {
-      "url": "http://your-server:3000/mcp"
+      "url": "https://test-mcp.codehub.io/mcp"
     }
   }
 }
@@ -39,13 +39,13 @@ Test login:
 
 Registrations, authorization codes, and tokens are held in memory and reset whenever the process restarts. This fixed login is only for isolated testing.
 
-OAuth requires HTTPS for non-localhost clients. For a remote deployment, terminate TLS at a reverse proxy and set the public origin before starting Compose:
+OAuth requires HTTPS for non-localhost clients. Terminate TLS for `test-mcp.codehub.io` at a reverse proxy and forward requests to port 3000:
 
 ```bash
-MCP_PUBLIC_URL=https://mcp.example.com docker compose up --build -d
+docker compose up --build -d
 ```
 
-Then configure the MCP client with `https://mcp.example.com/mcp`. An OAuth-capable client will discover the metadata, register itself through DCR, and open the login page automatically.
+Then configure the MCP client with `https://test-mcp.codehub.io/mcp`. An OAuth-capable client will discover the metadata, register itself through DCR, and open the login page automatically.
 
 ## Tool payload
 
@@ -83,10 +83,10 @@ Build and start the remote server:
 docker compose up --build -d
 ```
 
-For localhost testing, the MCP URL is:
+The MCP URL is:
 
 ```text
-http://localhost:3000/mcp
+https://test-mcp.codehub.io/mcp
 ```
 
 Stop it with:

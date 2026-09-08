@@ -3,6 +3,6 @@ services:
     build: .
     image: ticket-mock-mcp:local
     environment:
-      MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-http://localhost:3000}
+      MCP_PUBLIC_URL: https://test-mcp.codehub.io
     ports:
-      - "3000:3000"
+      - "0.0.0.0:3000:3000"
