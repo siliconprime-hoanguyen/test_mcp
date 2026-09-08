@@ -210,7 +210,7 @@ export class MockOAuthServer {
       expiresAt: Date.now() + AUTHORIZATION_TTL_MS,
     });
 
-    return html(loginPage(requestId), 200, redirectUri);
+    return html(loginPage(requestId));
   }
 
   private async finishAuthorization(request: Request): Promise<Response> {
@@ -222,7 +222,7 @@ export class MockOAuthServer {
       return oauthError("invalid_request", "Authorization request is invalid or expired");
     }
     if (!safeEqual(form?.get("username") ?? "", this.username) || !safeEqual(form?.get("password") ?? "", this.password)) {
-      return html(loginPage(requestId, "Invalid credentials"), 401, pending.redirectUri);
+      return html(loginPage(requestId, "Invalid credentials"), 401);
     }
 
     this.pending.delete(requestId);
@@ -377,22 +377,16 @@ function oauthError(error: string, errorDescription: string): Response {
   return json({ error, error_description: errorDescription }, 400);
 }
 
-function html(body: string, status = 200, redirectUri?: string): Response {
-  const formAction = redirectUri ? ` 'self' ${cspRedirectSource(redirectUri)}` : " 'self'";
+function html(body: string, status = 200): Response {
   return new Response(body, {
     status,
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "no-store",
-      "content-security-policy": `default-src 'none'; style-src 'unsafe-inline'; form-action${formAction}; frame-ancestors 'none'; base-uri 'none'`,
+      "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
       "x-content-type-options": "nosniff",
     },
   });
-}
-
-function cspRedirectSource(redirectUri: string): string {
-  const url = new URL(redirectUri);
-  return url.origin === "null" ? url.protocol : url.origin;
 }
 
 function loginPage(requestId: string, error = ""): string {
